@@ -24,6 +24,43 @@ def home():
     return str(data)
 
 
+@app.route('/join', methods=['GET'])
+def join():
+    new_node_key = request.args.get('key')  # key to add
+    new_node_port = config.node_port_prefix + int(new_node_key)
+    successor_key = data.connections['successor']['key']  # must be smaller than key
+    next_successor_key = data.connections['next_successor']['key']  # must be bigger than key
+
+    successor_port = data.connections['successor']['port']
+
+    # the case when we add
+    if successor_key < new_node_key < next_successor_key:
+        # set current nodes next successor
+        data.connections['next_successor'] = {'key': new_node_key, 'port': new_node_port}
+
+        old_successor_successor = requests.get(f'http://{config.ip}:{successor_port}/getsuccessor').json()
+        old_successor_next_successor = requests.get(f'http://{config.ip}:{successor_port}/getnextsuccessor').json()
+
+        # update the successor of the successor to be the new node :D
+        requests.get(f'http://{config.ip}:{successor_port}/setsuccessor?key={new_node_key}&port={new_node_port}')
+
+        # update the next successor of the successor to be the old successor :DDD
+        _key, _port = old_successor_successor['key'], old_successor_successor['port']
+        requests.get(f'http://{config.ip}:{successor_port}/setnextsuccessor?key={_key}&port={_port}')
+
+        # finally give references to the new node
+        requests.get(f'http://{config.ip}:{new_node_port}/setsuccessor?key={_key}&port={_port}')
+
+        _key, _port = old_successor_next_successor['key'], old_successor_next_successor['port']
+        requests.get(f'http://{config.ip}:{new_node_port}/setnextsuccessor?key={_key}&port={_port}')
+
+        return 'Success'
+
+    # try next node
+    else:
+        return requests.get(f'http://{config.ip}:{successor_port}/join?key={new_node_key}').text
+
+
 @app.route('/list', methods=['GET'])
 def list_nodes():
     requester_key = request.args.get('requester')
@@ -50,25 +87,40 @@ def add_link():
     return f'Added a link from {data.key} to {link}'
 
 
-@app.route('/addsuccessors', methods=['GET'])
-def add_successors():
-    sskey = request.args.get('sskey')
-    ssport = request.args.get('ssport')
-    nsskey = request.args.get('nsskey')
-    nssport = request.args.get('nssport')
-
-    data.connections['successor'] = {'key': sskey, 'port': ssport}
-    data.connections['next_successor'] = {'key': nsskey, 'port': nssport}
-
-    return f'Added successor and next successor to node {data.key}'
+@app.route('/getsuccessor', methods=['GET'])
+def get_next_sucessor():
+    return data.connections['successor']
 
 
-# TO BE REPLACED by delete node (with updating links and stuff)
-@app.route('/kill', methods=['GET'])
+@app.route('/getnextsuccessor', methods=['GET'])
+def get_sucessor_port():
+    return data.connections['next_successor']
+
+
+@app.route('/setsuccessor', methods=['GET'])
+def set_successor():
+    key = request.args.get('key')
+    port = request.args.get('port')
+    data.connections['successor'] = {'key': key, 'port': port}
+    return f'Added successor to node {data.key}'
+
+
+@app.route('/setnextsuccessor', methods=['GET'])
+def set_next_successor():
+    key = request.args.get('key')
+    port = request.args.get('port')
+    data.connections['next_successor'] = {'key': key, 'port': port}
+    return f'Added next successor to node {data.key}'
+
+
+@app.route('/alive', methods=['GET'])
+def is_alive():
+    return 'True'
+
+
+# Use when deleting node and stuff
 def shutdown():
-    func = flask.request.environ.get('werkzeug.server.shutdown')
-    func()
-    return "Quitting..."
+    flask.request.environ.get('werkzeug.server.shutdown')()
 
 
 def main():
