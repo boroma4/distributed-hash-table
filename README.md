@@ -23,3 +23,7 @@ To add a node
 python client.py join <id>
 ```
 
+To add a shortcute
+```
+python client.py shortcut <id>:<id>
+```

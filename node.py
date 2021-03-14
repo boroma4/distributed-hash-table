@@ -82,9 +82,12 @@ def add_link():
     port = request.args.get('port')
     link = {'key': key, 'port': port}
     data.connections['links'] = data.connections.get('links', [])
-    data.connections['links'].append(link)
 
-    return f'Added a link from {data.key} to {link}'
+    if link in data.connections['links']:
+        return 'Shortcut already exists'
+
+    data.connections['links'].append(link)
+    return f'Added a link from {data.key} to {key}'
 
 
 @app.route('/getsuccessor', methods=['GET'])

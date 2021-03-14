@@ -19,6 +19,28 @@ def list_nodes():
     return requests.get(f'http://{config.ip}:{entry_node_port}/list').text
 
 
+@app.route('/shortcut')
+def add_shortcut():
+    global is_initialized
+
+    key = request.args.get('from')
+    to_key = request.args.get('to')
+    port = int(key) + config.node_port_prefix
+    to_port = int(to_key) + config.node_port_prefix
+
+    if not is_initialized:
+        return 'DHT not initialized'
+
+    try:
+        requests.get(f'http://{config.ip}:{port}/alive', timeout=0.5)
+        requests.get(f'http://{config.ip}:{to_port}/alive', timeout=0.5)
+    except requests.exceptions.ConnectTimeout:
+        return 'Nodes might not exist'
+
+    return requests.get(f'http://{config.ip}:{port}/addlink?key={to_key}&port={to_port}').text
+
+
+# TODO: actually might not work when there are 1-2 nodes
 @app.route('/join', methods=['GET'])
 def join_node():
     global entry_node_port, is_initialized
@@ -33,8 +55,8 @@ def join_node():
         return 'Key outside of keyspace'
 
     try:
-        if requests.get(f'http://{config.ip}:{port}/alive', timeout=0.5).text == 'True':
-            return 'Node already exists'
+        requests.get(f'http://{config.ip}:{port}/alive', timeout=0.5)
+        return 'Node already exists'
     except requests.exceptions.ConnectTimeout:
         pass
 

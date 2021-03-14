@@ -33,3 +33,15 @@ if args[1] == 'join':
     else:
         print('Please specify key')
 
+
+if args[1] == 'shortcut':
+    if len(args) > 2:
+        fr, to = args[2].split(':')
+        r = requests.get(f'http://{config.ip}:{config.manager_port}/shortcut?from={fr}&to={to}')
+        if r.status_code == 200:
+            print(r.text)
+        else:
+            print('Failed to add a node')
+    else:
+        print('Please specify from/to nodes')
+
