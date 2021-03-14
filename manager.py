@@ -10,6 +10,7 @@ app = flask.Flask(__name__)
 
 # node with smallest key
 entry_node_port = None
+key_space = []
 is_initialized = False
 
 
@@ -20,10 +21,16 @@ def list_nodes():
 
 @app.route('/join', methods=['GET'])
 def join_node():
-    global entry_node_port
+    global entry_node_port, is_initialized
 
     key = request.args.get('key')
     port = int(key) + config.node_port_prefix
+
+    if not is_initialized:
+        return 'DHT not initialized'
+
+    if not key_space[0] <= int(key) <= key_space[1]:
+        return 'Key outside of keyspace'
 
     try:
         if requests.get(f'http://{config.ip}:{port}/alive', timeout=0.5).text == 'True':
@@ -47,10 +54,10 @@ def join_node():
 
 @app.route('/init', methods=['GET'])
 def init():
-    global is_initialized, entry_node_port
+    global is_initialized, entry_node_port, key_space
 
     if is_initialized:
-        raise RuntimeError('DHT already initialized')
+        return 'DHT already initialized'
 
     # read the file
     keys, key_space, shortcuts = utils.parse_input('input.txt')
@@ -90,7 +97,7 @@ def init():
             requests.get(f'http://{config.ip}:{current_node_port}/addlink?'
                          f'key={destination}&port={destination_port}')
 
-    return 'Success'
+    return 'Successfully initialized DHT'
 
 
 if __name__ == '__main__':

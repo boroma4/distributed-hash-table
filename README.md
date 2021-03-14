@@ -17,3 +17,9 @@ To list all nodes
 ```
 python client.py list
 ```
+
+To add a node
+```
+python client.py join <id>
+```
+

@@ -10,10 +10,7 @@ if len(args) < 2:
 
 if args[1] == 'init':
     r = requests.get(f'http://{config.ip}:{config.manager_port}/init')
-    if r.status_code == 200:
-        print('Successfully started DHT')
-    else:
-        print('Failed to start DHT')
+    print(r.text)
 
 if args[1] == 'list':
     r = requests.get(f'http://{config.ip}:{config.manager_port}/list')
