@@ -19,6 +19,23 @@ def list_nodes():
     return requests.get(f'http://{config.ip}:{entry_node_port}/list').text
 
 
+@app.route('/leave')
+def leave():
+    global is_initialized
+
+    key = request.args.get('key')
+    port = int(key) + config.node_port_prefix
+
+    if not is_initialized:
+        return 'DHT not initialized'
+
+    upd_successors = requests.get(f'http://{config.ip}:{entry_node_port}/leave?key={key}')
+    rm_shortcuts = requests.get(f'http://{config.ip}:{entry_node_port}/rmshortcut?key={key}')
+    kill = requests.get(f'http://{config.ip}:{port}/kill')
+
+    return '\n'.join([upd_successors.text, rm_shortcuts.text, kill.text])
+
+
 @app.route('/shortcut')
 def add_shortcut():
     global is_initialized

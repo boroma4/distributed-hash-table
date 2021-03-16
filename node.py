@@ -24,6 +24,7 @@ def home():
     return str(data)
 
 
+# TODO: think about 2-node case
 @app.route('/join', methods=['GET'])
 def join():
     new_node_key = request.args.get('key')  # key to add
@@ -33,7 +34,7 @@ def join():
 
     successor_port = data.connections['successor']['port']
 
-    # the case when we add
+    # general join case
     if successor_key < new_node_key < next_successor_key:
         # set current nodes next successor
         data.connections['next_successor'] = {'key': new_node_key, 'port': new_node_port}
@@ -59,6 +60,51 @@ def join():
     # try next node
     else:
         return requests.get(f'http://{config.ip}:{successor_port}/join?key={new_node_key}').text
+
+
+# TODO: think about 2-node case
+@app.route('/leave', methods=['GET'])
+def leave():
+    node_to_leave_key = request.args.get('key')  # key to delete
+    node_to_leave_port = config.node_port_prefix + int(node_to_leave_key)
+    successor_port = data.connections['successor']['port']
+
+    # general removal case
+    if data.connections['next_successor']['key'] == node_to_leave_key:
+        node_to_leave_successor = requests.get(f'http://{config.ip}:{node_to_leave_port}/getsuccessor').json()
+        node_to_leave_next_successor = requests.get(f'http://{config.ip}:{node_to_leave_port}/getnextsuccessor').json()
+
+        node_to_leave_successor_key = node_to_leave_successor['key']
+        node_to_leave_successor_port = node_to_leave_successor['port']
+        node_to_leave_next_successor_key = node_to_leave_next_successor['key']
+        node_to_leave_next_successor_port = node_to_leave_next_successor['port']
+
+        # update references
+        requests.get(
+            f'http://{config.ip}:{successor_port}/setsuccessor?key={node_to_leave_successor_key}&port={node_to_leave_successor_port}')
+        requests.get(
+            f'http://{config.ip}:{successor_port}/setnextsuccessor?key={node_to_leave_next_successor_key}&port={node_to_leave_next_successor_port}')
+        data.connections['next_successor'] = node_to_leave_successor
+
+        return f'Updated successors links to node {node_to_leave_key}'
+    else:
+        return requests.get(f'http://{config.ip}:{successor_port}/leave?key={node_to_leave_key}').text
+
+
+@app.route('/rmshortcut', methods=['GET'])
+def remove_shortcuts():
+    fr = request.args.get('from')
+    to_remove = request.args.get('key')
+    successor_port = data.connections['successor']['port']
+
+    # valid case
+    if fr is None or int(data.key) < int(fr):
+        if to_remove in data.connections['links']:
+            data.connections['links'].remove(to_remove)
+        return requests.get(f'http://{config.ip}:{successor_port}/rmshortcut?key={to_remove}&from={data.key}').text
+    # prevent infinite circle
+    else:
+        return f'Deleted all shortcuts to {to_remove}'
 
 
 @app.route('/list', methods=['GET'])
@@ -122,8 +168,10 @@ def is_alive():
 
 
 # Use when deleting node and stuff
+@app.route('/kill', methods=['GET'])
 def shutdown():
     flask.request.environ.get('werkzeug.server.shutdown')()
+    return f'Node {data.key} died'
 
 
 def main():

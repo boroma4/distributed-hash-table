@@ -34,6 +34,22 @@ if args[1] == 'join':
         print('Please specify key')
 
 
+if args[1] == 'leave':
+    if len(args) > 2:
+        key = args[2]
+        if key.isnumeric():
+            r = requests.get(f'http://{config.ip}:{config.manager_port}/leave?key={key}')
+            if r.status_code == 200:
+                pass
+            else:
+                print('Failed to add a node')
+            print(r.text)
+        else:
+            print('Key must be a number')
+    else:
+        print('Please specify key')
+
+
 if args[1] == 'shortcut':
     if len(args) > 2:
         fr, to = args[2].split(':')
