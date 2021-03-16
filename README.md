@@ -1,5 +1,14 @@
 # distributed-hash-table
 
+Setup:
+
+* Make sure you are using python 3
+* Setup your environment
+* Install requirements.txt
+
+```
+pip install -r requirements.txt
+``` 
 
 First run: 
 ```
@@ -23,7 +32,12 @@ To add a node
 python client.py join <id>
 ```
 
-To add a shortcute
+To remove a node
+```
+python client.py leave <id>
+```
+
+To add a shortcut
 ```
 python client.py shortcut <id>:<id>
 ```

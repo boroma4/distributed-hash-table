@@ -63,6 +63,7 @@ def join():
 
 
 # TODO: think about 2-node case
+# Confirmed, if there are just 2 nodes left the remaining node is not update properly
 @app.route('/leave', methods=['GET'])
 def leave():
     node_to_leave_key = request.args.get('key')  # key to delete
@@ -99,7 +100,7 @@ def remove_shortcuts():
 
     # valid case
     if fr is None or int(data.key) < int(fr):
-        if to_remove in data.connections['links']:
+        if 'links' in data.connections is not None and to_remove in data.connections['links']:
             data.connections['links'].remove(to_remove)
         return requests.get(f'http://{config.ip}:{successor_port}/rmshortcut?key={to_remove}&from={data.key}').text
     # prevent infinite circle
@@ -112,7 +113,7 @@ def list_nodes():
     requester_key = request.args.get('requester')
 
     # break the cycle, basically the base case of the "recursion"
-    if requester_key is not None and int(requester_key) > int(data.key):
+    if requester_key is not None and int(requester_key) >= int(data.key):
         return ''
 
     current_node_str = utils.format_node_data(data)

@@ -42,7 +42,7 @@ if args[1] == 'leave':
             if r.status_code == 200:
                 pass
             else:
-                print('Failed to add a node')
+                print('Failed to remove a node\n')
             print(r.text)
         else:
             print('Key must be a number')

@@ -21,7 +21,7 @@ def list_nodes():
 
 @app.route('/leave')
 def leave():
-    global is_initialized
+    global is_initialized, entry_node_port
 
     key = request.args.get('key')
     port = int(key) + config.node_port_prefix
@@ -29,11 +29,25 @@ def leave():
     if not is_initialized:
         return 'DHT not initialized'
 
-    upd_successors = requests.get(f'http://{config.ip}:{entry_node_port}/leave?key={key}')
-    rm_shortcuts = requests.get(f'http://{config.ip}:{entry_node_port}/rmshortcut?key={key}')
-    kill = requests.get(f'http://{config.ip}:{port}/kill')
+    try:
+        requests.get(f'http://{config.ip}:{port}/alive', timeout=0.5)
+    except requests.exceptions.ConnectTimeout:
+        return 'Node does not exist'
 
-    return '\n'.join([upd_successors.text, rm_shortcuts.text, kill.text])
+    successor_port = requests.get(f'http://{config.ip}:{entry_node_port}/getsuccessor').json()['port']
+
+    if successor_port == entry_node_port:
+        return 'Aborting...there is just one node in the ring'
+
+    upd_successors = requests.get(f'http://{config.ip}:{entry_node_port}/leave?key={key}').text
+    rm_shortcuts = requests.get(f'http://{config.ip}:{entry_node_port}/rmshortcut?key={key}').text
+    kill = requests.get(f'http://{config.ip}:{port}/kill').text
+    extra = ''
+    if int(port) == int(entry_node_port):
+        entry_node_port = successor_port
+        extra = f'New entry node is {int(entry_node_port) - config.node_port_prefix}'
+
+    return '\n'.join([upd_successors, rm_shortcuts, kill, extra])
 
 
 @app.route('/shortcut')
