@@ -1,4 +1,5 @@
 import requests
+import json
 import subprocess
 import flask
 import time
@@ -103,6 +104,92 @@ def join_node():
         entry_node_port = port
 
     return f'Successfully added node {key}'
+
+# TODO: Make lookup work
+@app.route('/lookup', methods=['GET'])
+def lookup_key():
+    global is_initialized, entry_node_port
+
+    key = int(request.args.get('key'))
+    node = request.args.get('node')
+    if node is None:
+        node = entry_node_port-config.node_port_prefix
+    else:
+        node = int(request.args.get('node'))
+    port = node+config.node_port_prefix
+
+    first_visited = node
+    counter = 0
+
+    if not is_initialized:
+        return 'DHT not initialized'
+
+    if not key_space[0] <= key <= key_space[1]:
+        return 'Key outside of keyspace'
+
+    if node == key:
+        return {"count": counter, "node": node}
+
+    # has_links = False
+
+    r = requests.get(f'http://{config.ip}:{port}/info')
+    res = json.loads(r.text)
+
+
+    while key>node:
+        port = int(node) + config.node_port_prefix
+        try:
+            res = json.loads(r.text)
+            link = -1
+            if 'links' in res:
+                # Check for key of a shortcut
+                # link = key of a link
+                # For loop in case one node has several links
+                temp = -1
+                for element in res['links']:
+                    potential_key = int(element['key'])
+                    if potential_key == key:
+                        counter+=1
+                        return {"count":counter,"node":potential_key}
+
+                    elif int(potential_key) > key:
+                        break
+
+                    temp = int(potential_key)
+                link = temp
+
+            if link > key:
+                # Forget about link, make next request to a successor and record the last visited node to last_visited
+                last_visited = node
+                port = int(res['successor']['port'])
+                node = int(res['successor']['key'])
+
+                r = requests.get(f'http://{config.ip}:{port}/info')
+                counter+=1
+
+            elif link == key:
+                # Bingo!
+                return {"count":counter,"node":link}
+            else:
+                # Follow the link and record the last visited node to last_visited
+                last_visited = node
+                if link != -1:
+                    r = requests.get(f'http://{config.ip}:{link+config.node_port_prefix}/info')
+                    counter+=1
+                    node = link
+                else:
+                    port = int(res['successor']['port'])
+                    node = int(res['successor']['key'])
+
+                    r = requests.get(f'http://{config.ip}:{port}/info')
+                    counter += 1
+
+            if node == entry_node_port-config.node_port_prefix:
+                return {"count":counter,"node":node}
+        except requests.exceptions.ConnectTimeout:
+            return "Node is dead, further connection is not possible. Sorry"
+
+    return {"count":counter,"node":node}
 
 
 @app.route('/init', methods=['GET'])

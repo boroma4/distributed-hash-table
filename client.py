@@ -12,6 +12,8 @@ if args[1] == 'init':
     r = requests.get(f'http://{config.ip}:{config.manager_port}/init')
     print(r.text)
 
+
+
 if args[1] == 'list':
     r = requests.get(f'http://{config.ip}:{config.manager_port}/list')
     if r.status_code == 200:
@@ -32,6 +34,25 @@ if args[1] == 'join':
             print('Key must be a number')
     else:
         print('Please specify key')
+
+if args[1] == 'lookup':
+    if len(args) > 2:
+        key_node = args[2].split(':')
+        key = key_node[0]
+        if key.isnumeric():
+            if len(key_node) > 1:
+                r = requests.get(f'http://{config.ip}:{config.manager_port}/lookup?key={key}&node={key_node[1]}')
+            else:
+                r = requests.get(f'http://{config.ip}:{config.manager_port}/lookup?key={key}')
+            if r.status_code == 200:
+                print(r.text)
+            else:
+                print('The specified key was not found')
+        else:
+            print('Key/node must be a number')
+    else:
+        print('Please specify key')
+
 
 
 if args[1] == 'leave':

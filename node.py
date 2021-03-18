@@ -23,6 +23,9 @@ data = Data()
 def home():
     return str(data)
 
+@app.route('/info', methods=['GET'])
+def node_info():
+    return data.connections
 
 # TODO: think about 2-node case
 @app.route('/join', methods=['GET'])
