@@ -23,22 +23,69 @@ data = Data()
 def home():
     return str(data)
 
+
 @app.route('/info', methods=['GET'])
 def node_info():
     return data.connections
 
-# TODO: think about 2-node case
+
 @app.route('/join', methods=['GET'])
 def join():
     new_node_key = request.args.get('key')  # key to add
     new_node_port = config.node_port_prefix + int(new_node_key)
-    successor_key = data.connections['successor']['key']  # must be smaller than key
-    next_successor_key = data.connections['next_successor']['key']  # must be bigger than key
-
+    successor_key = data.connections['successor']['key']
+    next_successor_key = data.connections['next_successor']['key']
     successor_port = data.connections['successor']['port']
 
+    # 1-node case
+    if data.connections['successor']['key'] == data.key:
+        requests.get(f'http://{config.ip}:{new_node_port}/setsuccessor?key={data.key}&port={data.port}')
+        requests.get(f'http://{config.ip}:{new_node_port}/setnextsuccessor?key={new_node_key}&port={new_node_port}')
+        data.connections['successor'] = {'key': new_node_key, 'port': new_node_port}
+        return 'Success'
+
+    # 2-node case
+    if data.connections['next_successor']['key'] == data.key:
+        # data.key is the smallest in the DHT
+
+        # must become first
+        if int(new_node_key) < int(data.key):
+            requests.get(f'http://{config.ip}:{new_node_port}/setsuccessor?key={data.key}&port={data.port}')
+            requests.get(
+                f'http://{config.ip}:{new_node_port}/setnextsuccessor?key={successor_key}&port={successor_port}')
+            requests.get(f'http://{config.ip}:{successor_port}/setsuccessor?key={new_node_key}&port={new_node_port}')
+            requests.get(f'http://{config.ip}:{successor_port}/setnextsuccessor?key={data.key}&port={data.port}')
+            data.connections['next_successor'] = {'key': new_node_key, 'port': new_node_port}
+
+        # insert in the middle
+        if int(data.key) < int(new_node_key) < int(successor_key):
+            requests.get(f'http://{config.ip}:{new_node_port}/setsuccessor?key={successor_key}&port={successor_port}')
+            requests.get(
+                f'http://{config.ip}:{new_node_port}/setnextsuccessor?key={data.key}&port={data.port}')
+
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setnextsuccessor?key={new_node_key}&port={new_node_port}')
+
+            data.connections['successor'] = {'key': new_node_key, 'port': new_node_port}
+            data.connections['next_successor'] = {'key': successor_key, 'port': successor_port}
+
+        # insert last
+        if int(successor_key) < int(new_node_key):
+            requests.get(f'http://{config.ip}:{new_node_port}/setsuccessor?key={data.key}&port={data.port}')
+            requests.get(
+                f'http://{config.ip}:{new_node_port}/setnextsuccessor?key={successor_key}&port={successor_port}')
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setsuccessor?key={new_node_key}&port={new_node_port}')
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setnextsuccessor?key={data.key}&port={data.port}')
+            data.connections['next_successor'] = {'key': new_node_key, 'port': new_node_port}
+
+        return 'Success'
+
     # general join case
-    if successor_key < new_node_key < next_successor_key:
+    if successor_key < new_node_key < next_successor_key \
+            or (next_successor_key < new_node_key > successor_key > next_successor_key):
+
         # set current nodes next successor
         data.connections['next_successor'] = {'key': new_node_key, 'port': new_node_port}
 
@@ -65,8 +112,6 @@ def join():
         return requests.get(f'http://{config.ip}:{successor_port}/join?key={new_node_key}').text
 
 
-# TODO: think about 2-node case
-# Confirmed, if there are just 2 nodes left the remaining node is not update properly
 @app.route('/leave', methods=['GET'])
 def leave():
     node_to_leave_key = request.args.get('key')  # key to delete
@@ -84,11 +129,20 @@ def leave():
         node_to_leave_next_successor_port = node_to_leave_next_successor['port']
 
         # update references
-        requests.get(
-            f'http://{config.ip}:{successor_port}/setsuccessor?key={node_to_leave_successor_key}&port={node_to_leave_successor_port}')
-        requests.get(
-            f'http://{config.ip}:{successor_port}/setnextsuccessor?key={node_to_leave_next_successor_key}&port={node_to_leave_next_successor_port}')
-        data.connections['next_successor'] = node_to_leave_successor
+
+        # only 2 nodes left
+        if data.key == node_to_leave_key:
+            # make the last node point to itself
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setsuccessor?key={node_to_leave_successor_key}&port={node_to_leave_successor_port}')
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setnextsuccessor?key={node_to_leave_successor_key}&port={node_to_leave_successor_port}')
+        else:
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setsuccessor?key={node_to_leave_successor_key}&port={node_to_leave_successor_port}')
+            requests.get(
+                f'http://{config.ip}:{successor_port}/setnextsuccessor?key={node_to_leave_next_successor_key}&port={node_to_leave_next_successor_port}')
+            data.connections['next_successor'] = node_to_leave_successor
 
         return f'Updated successors links to node {node_to_leave_key}'
     else:

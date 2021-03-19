@@ -72,7 +72,6 @@ def add_shortcut():
     return requests.get(f'http://{config.ip}:{port}/addlink?key={to_key}&port={to_port}').text
 
 
-# TODO: actually might not work when there are 1-2 nodes
 @app.route('/join', methods=['GET'])
 def join_node():
     global entry_node_port, is_initialized
@@ -92,20 +91,23 @@ def join_node():
     except requests.exceptions.ConnectTimeout:
         pass
 
-    # as always, assume nothing crashes
     subprocess.Popen(f'python node.py {key}')
     time.sleep(1)
-    r = requests.get(f'http://{config.ip}:{entry_node_port}/join?key={key}')
+
+    r = requests.get(f'http://{config.ip}:{entry_node_port}/join?key={key}', timeout=5)
 
     if r.status_code != 200:
+        requests.get(f'http://{config.ip}:{port}/kill')
         return 'Something went wrong'
 
-    if port < entry_node_port:
+    extra = ''
+    if int(port) < int(entry_node_port):
         entry_node_port = port
+        extra = f'New entry node is {int(entry_node_port) - config.node_port_prefix}'
 
-    return f'Successfully added node {key}'
+    return '\n'.join([f'Successfully added node {key}', extra])
 
-# TODO: Make lookup work
+
 @app.route('/lookup', methods=['GET'])
 def lookup_key():
     global is_initialized, entry_node_port
@@ -113,10 +115,10 @@ def lookup_key():
     key = int(request.args.get('key'))
     node = request.args.get('node')
     if node is None:
-        node = entry_node_port-config.node_port_prefix
+        node = entry_node_port - config.node_port_prefix
     else:
         node = int(request.args.get('node'))
-    port = node+config.node_port_prefix
+    port = node + config.node_port_prefix
 
     first_visited = node
     counter = 0
@@ -135,8 +137,7 @@ def lookup_key():
     r = requests.get(f'http://{config.ip}:{port}/info')
     res = json.loads(r.text)
 
-
-    while key>node:
+    while key > node:
         port = int(node) + config.node_port_prefix
         try:
             res = json.loads(r.text)
@@ -149,8 +150,8 @@ def lookup_key():
                 for element in res['links']:
                     potential_key = int(element['key'])
                     if potential_key == key:
-                        counter+=1
-                        return {"count":counter,"node":potential_key}
+                        counter += 1
+                        return {"count": counter, "node": potential_key}
 
                     elif int(potential_key) > key:
                         break
@@ -165,17 +166,17 @@ def lookup_key():
                 node = int(res['successor']['key'])
 
                 r = requests.get(f'http://{config.ip}:{port}/info')
-                counter+=1
+                counter += 1
 
             elif link == key:
                 # Bingo!
-                return {"count":counter,"node":link}
+                return {"count": counter, "node": link}
             else:
                 # Follow the link and record the last visited node to last_visited
                 last_visited = node
                 if link != -1:
-                    r = requests.get(f'http://{config.ip}:{link+config.node_port_prefix}/info')
-                    counter+=1
+                    r = requests.get(f'http://{config.ip}:{link + config.node_port_prefix}/info')
+                    counter += 1
                     node = link
                 else:
                     port = int(res['successor']['port'])
@@ -184,12 +185,12 @@ def lookup_key():
                     r = requests.get(f'http://{config.ip}:{port}/info')
                     counter += 1
 
-            if node == entry_node_port-config.node_port_prefix:
-                return {"count":counter,"node":node}
+            if node == entry_node_port - config.node_port_prefix:
+                return {"count": counter, "node": node}
         except requests.exceptions.ConnectTimeout:
             return "Node is dead, further connection is not possible. Sorry"
 
-    return {"count":counter,"node":node}
+    return {"count": counter, "node": node}
 
 
 @app.route('/init', methods=['GET'])

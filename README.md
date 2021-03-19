@@ -27,6 +27,12 @@ To list all nodes
 python client.py list
 ```
 
+To perform a lookup
+
+```
+python client.py lookup <target:start_node>
+```
+
 To add a node
 ```
 python client.py join <id>
@@ -41,3 +47,4 @@ To add a shortcut
 ```
 python client.py shortcut <id>:<id>
 ```
+
