@@ -31,11 +31,11 @@ def node_info():
 
 @app.route('/join', methods=['GET'])
 def join():
-    new_node_key = request.args.get('key')  # key to add
-    new_node_port = config.node_port_prefix + int(new_node_key)
-    successor_key = data.connections['successor']['key']
-    next_successor_key = data.connections['next_successor']['key']
-    successor_port = data.connections['successor']['port']
+    new_node_key = int(request.args.get('key'))  # key to add
+    new_node_port = config.node_port_prefix + new_node_key
+    successor_key = int(data.connections['successor']['key'])
+    next_successor_key = int(data.connections['next_successor']['key'])
+    successor_port = int(data.connections['successor']['port'])
 
     # 1-node case
     if data.connections['successor']['key'] == data.key:
@@ -84,7 +84,8 @@ def join():
 
     # general join case
     if successor_key < new_node_key < next_successor_key \
-            or (next_successor_key < new_node_key > successor_key > next_successor_key):
+            or (new_node_key > successor_key > next_successor_key)\
+            or (new_node_key < next_successor_key < successor_key):
 
         # set current nodes next successor
         data.connections['next_successor'] = {'key': new_node_key, 'port': new_node_port}
@@ -92,10 +93,10 @@ def join():
         old_successor_successor = requests.get(f'http://{config.ip}:{successor_port}/getsuccessor').json()
         old_successor_next_successor = requests.get(f'http://{config.ip}:{successor_port}/getnextsuccessor').json()
 
-        # update the successor of the successor to be the new node :D
+        # update the successor of the successor to be the new node
         requests.get(f'http://{config.ip}:{successor_port}/setsuccessor?key={new_node_key}&port={new_node_port}')
 
-        # update the next successor of the successor to be the old successor :DDD
+        # update the next successor of the successor to be the old successor
         _key, _port = old_successor_successor['key'], old_successor_successor['port']
         requests.get(f'http://{config.ip}:{successor_port}/setnextsuccessor?key={_key}&port={_port}')
 
@@ -119,7 +120,7 @@ def leave():
     successor_port = data.connections['successor']['port']
 
     # general removal case
-    if data.connections['next_successor']['key'] == node_to_leave_key:
+    if int(data.connections['next_successor']['key']) == int(node_to_leave_key):
         node_to_leave_successor = requests.get(f'http://{config.ip}:{node_to_leave_port}/getsuccessor').json()
         node_to_leave_next_successor = requests.get(f'http://{config.ip}:{node_to_leave_port}/getnextsuccessor').json()
 
