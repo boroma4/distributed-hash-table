@@ -1,4 +1,4 @@
-# distributed-hash-table
+# Distributed Hash Table
 
 Setup:
 
