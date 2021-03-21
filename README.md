@@ -1,10 +1,11 @@
-# distributed-hash-table
+# Distributed Hash Table
 
 Setup:
 
 * Make sure you are using python 3
 * Setup your environment
 * Install requirements.txt
+* Verify that **input.txt** is present and has correct information
 
 ```
 pip install -r requirements.txt
